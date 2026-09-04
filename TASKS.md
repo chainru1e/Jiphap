@@ -17,7 +17,7 @@ ARCHITECTURE.md와 SCHEMA.sql을 읽고, TASKS.md의 T06만 처리해줘.
 
 빈 화면이라도 먼저 인터넷에 올린다. 마지막에 배포하려다 막히는 게 가장 흔한 실패다.
 
-### T01 · Next.js 프로젝트 생성
+### T01 · Next.js 프로젝트 생성 ✓
 `create-next-app` — App Router, TypeScript, Tailwind, ESLint.
 **완료 기준:** `npm run dev`로 로컬에서 뜬다.
 
