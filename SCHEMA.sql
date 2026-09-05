@@ -3,7 +3,7 @@
 --
 -- 설계 원칙 (ARCHITECTURE.md §3)
 --   * 클라이언트는 읽기만. INSERT/UPDATE/DELETE 정책을 만들지 않아 RLS 기본 거부에 걸린다
---   * 모든 쓰기는 Server Action에서 service_role 키로 수행한다
+--   * 모든 쓰기는 Server Action에서 secret 키(service_role 롤)로 수행한다
 --   * 원좌표(lat/lng)는 검증에만 쓰고 저장하지 않는다. 거리와 정확도만 남긴다
 
 -- ============================================================
@@ -189,7 +189,7 @@ create policy check_ins_read on check_ins
 
 -- INSERT / UPDATE / DELETE 정책은 의도적으로 만들지 않는다.
 -- 정책이 없으면 RLS 기본 거부에 걸려 클라이언트는 쓸 수 없다.
--- 모든 쓰기는 Server Action이 service_role 키로 수행한다.
+-- 모든 쓰기는 Server Action이 secret 키(service_role 롤)로 수행한다.
 
 -- ============================================================
 -- Realtime — 명단 실시간 갱신

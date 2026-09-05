@@ -37,7 +37,7 @@
 
 ### 보안
 
-- `SUPABASE_SERVICE_ROLE_KEY`는 서버 전용. **`NEXT_PUBLIC_` 접두사 금지.** `admin.ts`에는 `import 'server-only'`
+- `SUPABASE_SECRET_KEY`(`sb_secret_...`)는 서버 전용. **`NEXT_PUBLIC_` 접두사 금지.** `admin.ts`에는 `import 'server-only'`
 - 클라이언트에서 DB에 쓰지 않는다. 모든 쓰기는 Server Action → service_role
 - `check_ins`, `sessions`, `profiles`에 클라이언트용 INSERT/UPDATE/DELETE 정책을 만들지 않는다
 

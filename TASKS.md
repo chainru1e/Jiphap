@@ -21,9 +21,10 @@ ARCHITECTURE.md와 SCHEMA.sql을 읽고, TASKS.md의 T06만 처리해줘.
 `create-next-app` — App Router, TypeScript, Tailwind, ESLint.
 **완료 기준:** `npm run dev`로 로컬에서 뜬다.
 
-### T02 · Supabase 프로젝트 생성 + 환경변수
+### T02 · Supabase 프로젝트 생성 + 환경변수 ✓
 `.env.local` 구성 (ARCHITECTURE.md §12). `.gitignore` 확인.
-**완료 기준:** `SUPABASE_SERVICE_ROLE_KEY`가 `NEXT_PUBLIC_` 접두사 **없이** 들어가 있다.
+**완료 기준:** `SUPABASE_SECRET_KEY`가 `NEXT_PUBLIC_` 접두사 **없이** `.env.local`에 있고,
+`.env.example`만 커밋된다 (`.env.local`은 `.gitignore`에 걸린다).
 
 ### T03 · 스키마 마이그레이션
 `SCHEMA.sql`의 테이블·트리거·함수 부분 적용.

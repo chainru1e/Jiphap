@@ -77,7 +77,9 @@
 
 `check_ins`, `sessions`, `profiles`에 클라이언트용 INSERT/UPDATE/DELETE 정책을
 **만들지 않는다.** RLS 기본 거부에 걸려 클라이언트는 절대 쓸 수 없다.
-`service_role` 키는 서버 환경변수에만 두고 절대 클라이언트 번들에 넣지 않는다.
+secret 키(`SUPABASE_SECRET_KEY`, `sb_secret_...`)는 서버 환경변수에만 두고
+절대 클라이언트 번들에 넣지 않는다. 이 키는 Postgres의 `service_role` 롤로
+인증되어 RLS를 전부 우회하므로, 노출되면 RLS 설계가 통째로 무의미해진다.
 
 ---
 
@@ -252,11 +254,20 @@ Supabase Postgres
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=      # 서버 전용. 절대 클라이언트 번들 금지
-NEXT_PUBLIC_KAKAO_MAP_KEY=      # JavaScript 키
-CRON_SECRET=                    # Vercel이 자동 주입
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=   # sb_publishable_... 브라우저 노출 전제
+SUPABASE_SECRET_KEY=                    # sb_secret_... 서버 전용. 절대 클라이언트 번들 금지
+NEXT_PUBLIC_KAKAO_MAP_KEY=              # JavaScript 키
+CRON_SECRET=                            # 직접 정해 Vercel에 등록. 아래 주의
 ```
+
+**2025-11-01 이후 만든 Supabase 프로젝트에는 legacy `anon` / `service_role` 키가
+발급되지 않는다.** 대시보드에 나오는 것은 publishable / secret 두 가지뿐이고,
+`sb_publishable_`가 옛 anon 키를, `sb_secret_`가 옛 service_role 키를 대신한다.
+권한 모델은 그대로다 — secret 키는 여전히 `service_role` 롤로 인증되어 RLS를 우회한다 (§3).
+
+`CRON_SECRET`은 **Vercel이 만들어 주지 않는다.** 사람이 값을 정해 Vercel 환경변수에
+등록하면, Vercel이 크론 요청에 `Authorization: Bearer <값>`으로 실어 보낼 뿐이다.
+등록하지 않으면 헤더가 오지 않아 T32의 검증이 항상 실패한다.
 
 카카오 개발자 콘솔에 **플랫폼 도메인과 Redirect URI 양쪽 모두** 등록해야 한다.
 하나만 빠져도 로그인이 실패한다.
