@@ -185,6 +185,9 @@ Supabase Postgres
 
 반경은 `places`가 아니라 `sessions`에 둔다. 같은 장소라도 계절·날씨에 따라 GPS 오차가 달라진다.
 
+세션 창 경계(opens_at/closes_at)는 DB에 저장하지 않는다.
+판정은 `lib/window.ts`가 하고, DB는 `meet_at`과 ±분만 갖는다.
+
 ---
 
 ## 8. 프라이버시

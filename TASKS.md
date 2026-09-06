@@ -27,11 +27,16 @@ ARCHITECTURE.md와 SCHEMA.sql을 읽고, TASKS.md의 T06만 처리해줘.
 `.env.example`만 커밋된다 (`.env.local`은 `.gitignore`에 걸린다).
 
 ### T03 · 스키마 마이그레이션
-`SCHEMA.sql`의 테이블·트리거·함수 부분 적용.
+`SCHEMA.sql`의 테이블·트리거·함수 부분 적용 → `supabase/migrations/0001_schema.sql`.
+RLS 켜기(`enable row level security`)는 0002가 아니라 0001에 둔다 — `create table`은 RLS를
+켜지 않아, 0001만 적용된 구간 동안 테이블이 Data API에 전면 개방되기 때문이다
+(RLS 켜짐 + 정책 0개 = 전면 차단).
 **완료 기준:** 대시보드 테이블 에디터에 5개 테이블이 보인다.
 
 ### T04 · RLS 정책 적용
-`SCHEMA.sql`의 RLS 부분 적용.
+`SCHEMA.sql`의 RLS 부분 적용 → `supabase/migrations/0002_rls.sql` (`create policy`만. 켜기는 0001에서 끝났다).
+메모: `public` 스키마에 `anon`/`authenticated` 자동 GRANT가 없는 프로젝트가 있다. 그 경우
+"거부됨"이 RLS 때문인지 GRANT 부재 때문인지 구분되지 않는다 (T03 검증 (f)로 확인).
 **완료 기준:** anon 키로 `check_ins` INSERT를 시도하면 거부된다.
 
 ### T05 · Vercel 배포

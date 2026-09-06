@@ -1,10 +1,12 @@
--- 집합(Jiphap) 스키마
--- Supabase SQL Editor 또는 supabase/migrations/ 에 넣어 실행한다.
+-- 0001_schema.sql — 집합(Jiphap) 스키마
+-- 대시보드 SQL Editor에 통째로 붙여넣어 실행한다. 적용 절차는 README.md 참고.
 --
 -- 설계 원칙 (ARCHITECTURE.md §3)
 --   * 클라이언트는 읽기만. INSERT/UPDATE/DELETE 정책을 만들지 않아 RLS 기본 거부에 걸린다
 --   * 모든 쓰기는 Server Action에서 secret 키(service_role 롤)로 수행한다
 --   * 원좌표(lat/lng)는 검증에만 쓰고 저장하지 않는다. 거리와 정확도만 남긴다
+--
+-- RLS 정책(create policy)은 이 파일에 없다. 0002_rls.sql에서 따로 적용한다 (T04).
 
 -- ============================================================
 -- profiles — auth.users 확장
@@ -42,6 +44,10 @@ begin
 end;
 $$;
 
+-- 아래 트리거는 public이 아니라 auth 스키마의 테이블(auth.users)에 건다.
+-- auth.users의 소유자는 supabase_auth_admin이라, 반드시 대시보드
+-- SQL Editor(postgres 롤)에서 실행해야 한다. 애플리케이션 커넥션
+-- (publishable/secret 키)으로는 권한이 없어 실패한다.
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function handle_new_user();
@@ -153,8 +159,12 @@ create index on check_ins (member_id, checked_at desc);
 -- 지각 여부는 저장하지 않는다. 표시할 때 checked_at > meet_at 으로 계산한다
 
 -- ============================================================
--- RLS — 읽기만 허용, 쓰기는 전부 service_role
+-- RLS 켜기 — 정책은 0002_rls.sql
 -- ============================================================
+-- create table은 RLS를 켜지 않는다. 이 5줄이 0002에 있으면,
+-- 0001만 적용된 상태로 시간이 뜨는 동안 다섯 테이블이 Data API에 전면 개방된다.
+-- RLS 켜짐 + 정책 0개 = 전면 차단이므로, 켜기를 0001에 두는 쪽이 안전하다.
+-- 정책 없이 이 파일만 적용해도 데이터가 새지 않는다.
 
 alter table profiles            enable row level security;
 alter table places              enable row level security;
@@ -162,36 +172,11 @@ alter table recurring_schedules enable row level security;
 alter table sessions            enable row level security;
 alter table check_ins           enable row level security;
 
--- 본인 프로필은 항상 읽을 수 있다 (pending 상태에서도 승인 대기 화면을 봐야 함)
-create policy profiles_self on profiles
-  for select to authenticated using (id = auth.uid());
-
--- 정회원은 다른 정회원의 이름을 볼 수 있다 (명단 표시용)
-create policy profiles_roster on profiles
-  for select to authenticated
-  using (status = 'active' and is_active_member());
-
--- 나머지는 정회원만 조회 가능
-create policy places_read on places
-  for select to authenticated using (is_active_member());
-
-create policy schedules_read on recurring_schedules
-  for select to authenticated using (is_active_member());
-
-create policy sessions_read on sessions
-  for select to authenticated using (is_active_member());
-
--- 명단은 모두에게 공개한다. 이것이 대리 출첵의 사회적 억제 장치다
-create policy check_ins_read on check_ins
-  for select to authenticated using (is_active_member());
-
--- INSERT / UPDATE / DELETE 정책은 의도적으로 만들지 않는다.
--- 정책이 없으면 RLS 기본 거부에 걸려 클라이언트는 쓸 수 없다.
--- 모든 쓰기는 Server Action이 secret 키(service_role 롤)로 수행한다.
-
 -- ============================================================
 -- Realtime — 명단 실시간 갱신
 -- ============================================================
+-- supabase_realtime 퍼블리케이션의 소유 롤이 필요하다.
+-- 이 문장도 대시보드 SQL Editor(postgres 롤)에서 실행한다.
 
 alter publication supabase_realtime add table check_ins;
 
