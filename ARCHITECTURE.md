@@ -81,6 +81,20 @@ secret 키(`SUPABASE_SECRET_KEY`, `sb_secret_...`)는 서버 환경변수에만 
 절대 클라이언트 번들에 넣지 않는다. 이 키는 Postgres의 `service_role` 롤로
 인증되어 RLS를 전부 우회하므로, 노출되면 RLS 설계가 통째로 무의미해진다.
 
+### RLS 자동 활성화 트리거 (`ensure_rls`)
+
+`public`에 `ensure_rls` 이벤트 트리거가 걸려 있다. `ddl_command_end`마다 돌면서
+새로 만들어진 `public` 테이블에 `enable row level security`를 건다.
+
+**Supabase의 기본값이 아니다.** 대시보드의 옵트인 기능
+(Authentication > Auto-enable RLS for new tables)을 이 프로젝트에서 켜서 생긴 것이다.
+정의는 `supabase/migrations/0003_event_trigger_ensure_rls.sql`에 그대로 옮겨 뒀다.
+
+- **이 트리거는 정책을 만들지 않는다.** RLS를 켜기만 한다
+- **실제 통제 수단은 각 마이그레이션이 명시적으로 적는 `enable row level security`다.**
+  이 트리거는 그 위에 덧대는 안전망일 뿐이다. 마이그레이션에서 그 문장을 빼지 않는다 —
+  트리거가 꺼졌거나 없는 프로젝트에서 테이블이 그대로 열린다
+
 ---
 
 ## 4. 데이터 흐름
