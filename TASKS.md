@@ -26,7 +26,7 @@ ARCHITECTURE.md와 SCHEMA.sql을 읽고, TASKS.md의 T06만 처리해줘.
 **완료 기준:** `SUPABASE_SECRET_KEY`가 `NEXT_PUBLIC_` 접두사 **없이** `.env.local`에 있고,
 `.env.example`만 커밋된다 (`.env.local`은 `.gitignore`에 걸린다).
 
-### T03 · 스키마 마이그레이션
+### T03 · 스키마 마이그레이션 ✓
 `SCHEMA.sql`의 테이블·트리거·함수 부분 적용 → `supabase/migrations/0001_schema.sql`.
 RLS 켜기(`enable row level security`)는 0002가 아니라 0001에 둔다 — `create table`은 RLS를
 켜지 않아, 0001만 적용된 구간 동안 테이블이 Data API에 전면 개방되기 때문이다
@@ -35,8 +35,11 @@ RLS 켜기(`enable row level security`)는 0002가 아니라 0001에 둔다 — 
 
 ### T04 · RLS 정책 적용
 `SCHEMA.sql`의 RLS 부분 적용 → `supabase/migrations/0002_rls.sql` (`create policy`만. 켜기는 0001에서 끝났다).
-메모: `public` 스키마에 `anon`/`authenticated` 자동 GRANT가 없는 프로젝트가 있다. 그 경우
-"거부됨"이 RLS 때문인지 GRANT 부재 때문인지 구분되지 않는다 (T03 검증 (f)로 확인).
+0002는 T03 검증 시점에 이미 적용돼 있었다 — 정책 6개가 전부 `SELECT`/`to authenticated`로
+확인됨(`anon` 대상 정책 0개). 재실행하면 `already exists`로 실패한다. 남은 건 완료 기준 확인뿐.
+메모: T03 검증 (f) 결과 — `anon`·`authenticated` 모두 5개 테이블에 INSERT/UPDATE/DELETE/
+TRUNCATE GRANT를 갖고 있다. 따라서 여기서 나오는 "거부됨"은 GRANT 부재가 아니라 RLS 때문이다.
+동시에 RLS가 유일한 방어선이라는 뜻이기도 하다 — write GRANT를 revoke할지는 미결(§3에 결정 없음).
 **완료 기준:** anon 키로 `check_ins` INSERT를 시도하면 거부된다.
 
 ### T05 · Vercel 배포
