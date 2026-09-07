@@ -33,13 +33,17 @@ RLS 켜기(`enable row level security`)는 0002가 아니라 0001에 둔다 — 
 (RLS 켜짐 + 정책 0개 = 전면 차단).
 **완료 기준:** 대시보드 테이블 에디터에 5개 테이블이 보인다.
 
-### T04 · RLS 정책 적용
+### T04 · RLS 정책 적용 ✓
 `SCHEMA.sql`의 RLS 부분 적용 → `supabase/migrations/0002_rls.sql` (`create policy`만. 켜기는 0001에서 끝났다).
 0002는 T03 검증 시점에 이미 적용돼 있었다 — 정책 6개가 전부 `SELECT`/`to authenticated`로
 확인됨(`anon` 대상 정책 0개). 재실행하면 `already exists`로 실패한다. 남은 건 완료 기준 확인뿐.
 메모: T03 검증 (f) 결과 — `anon`·`authenticated` 모두 5개 테이블에 INSERT/UPDATE/DELETE/
 TRUNCATE GRANT를 갖고 있다. 따라서 여기서 나오는 "거부됨"은 GRANT 부재가 아니라 RLS 때문이다.
 동시에 RLS가 유일한 방어선이라는 뜻이기도 하다 — write GRANT를 revoke할지는 미결(§3에 결정 없음).
+메모: rowsecurity 5개 테이블 전부 true, anon 대상 정책 0개 — 카탈로그로 확인.
+쓰기 정책 부재는 누락이 아니라 T21 Server Action 위임에 따른 의도다.
+A절 SELECT probe는 전 테이블 0행이라 판정 불가. 결정적 증거는 B/D INSERT probe다.
+anon INSERT probe 5/5 → 42501 new row violates row-level security policy (payload {}, HTTP 401).
 **완료 기준:** anon 키로 `check_ins` INSERT를 시도하면 거부된다.
 
 ### T05 · Vercel 배포
