@@ -39,7 +39,7 @@ RLS 켜기(`enable row level security`)는 0002가 아니라 0001에 둔다 — 
 확인됨(`anon` 대상 정책 0개). 재실행하면 `already exists`로 실패한다. 남은 건 완료 기준 확인뿐.
 메모: T03 검증 (f) 결과 — `anon`·`authenticated` 모두 5개 테이블에 INSERT/UPDATE/DELETE/
 TRUNCATE GRANT를 갖고 있다. 따라서 여기서 나오는 "거부됨"은 GRANT 부재가 아니라 RLS 때문이다.
-동시에 RLS가 유일한 방어선이라는 뜻이기도 하다 — write GRANT를 revoke할지는 미결(§3에 결정 없음).
+동시에 RLS가 유일한 방어선이라는 뜻이기도 하다 — revoke 여부는 미결 (ARCHITECTURE.md §14).
 메모: rowsecurity 5개 테이블 전부 true, anon 대상 정책 0개 — 카탈로그로 확인.
 쓰기 정책 부재는 누락이 아니라 T21 Server Action 위임에 따른 의도다.
 A절 SELECT probe는 전 테이블 0행이라 판정 불가. 결정적 증거는 B/D INSERT probe다.
@@ -317,6 +317,7 @@ AND meet_at이 아직 종료되지 않음   -- meet_at + open_after_min > now()
 **완료 기준:** 이미 번개를 연 계정으로 하나 더 만들면 거부된다.
 과거 시각으로 호출하면 거부된다. 요청에 `radius`를 실어 보내도 저장된 값은 서버 상수다.
 선행: T21, T42
+**Phase 1~3 및 T21 완료 후 착수한다.** T42가 선행 티켓을 앞질러 들어갔을 뿐이다
 
 ### T44 · 번개 개설 폼 UI + 카카오맵 좌표 선택
 지도 핀으로 좌표를 찍는다. 위도·경도 직접 입력 UI는 만들지 않는다 (ARCHITECTURE.md §11).
@@ -324,6 +325,7 @@ AND meet_at이 아직 종료되지 않음   -- meet_at + open_after_min > now()
 **완료 기준:** 지도에서 핀을 옮기면 좌표가 갱신되고, 개설 후 그 좌표의 세션이 목록에 뜬다.
 개설이 막히는 경우 그 이유가 버튼 바로 위에 뜬다.
 선행: T43
+**Phase 1~3 및 T21 완료 후 착수한다.** T42가 선행 티켓을 앞질러 들어갔을 뿐이다
 
 ### T45 · 세션 취소/삭제 Server Action + 권한 검증
 취소: 개설자 본인 또는 운영자 → `canceled_at`·`cancel_reason` 기록.
@@ -332,6 +334,7 @@ AND meet_at이 아직 종료되지 않음   -- meet_at + open_after_min > now()
 **완료 기준:** 남의 세션을 취소하려 하면 거부된다.
 체크인이 있는 세션의 하드 삭제가 거부된다. 취소된 세션은 출첵 대상에서 빠진다.
 선행: T43
+**Phase 1~3 및 T21 완료 후 착수한다.** T42가 선행 티켓을 앞질러 들어갔을 뿐이다
 
 ### T46 · `0005_check_ins_visibility.sql` — 명단 조회 범위 축소
 `check_ins_read` 정책을 **본인 행 + 운영자 전체**로 좁힌다.
