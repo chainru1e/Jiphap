@@ -40,6 +40,9 @@
 - `SUPABASE_SECRET_KEY`(`sb_secret_...`)는 서버 전용. **`NEXT_PUBLIC_` 접두사 금지.** `admin.ts`에는 `import 'server-only'`
 - 클라이언트에서 DB에 쓰지 않는다. 모든 쓰기는 Server Action → service_role
 - `check_ins`, `sessions`, `profiles`에 클라이언트용 INSERT/UPDATE/DELETE 정책을 만들지 않는다
+- **`.env.local`을 `cat`하지 않고, 그 안의 값을 어떤 형태로도 출력하지 않는다.**
+  확인이 필요하면 변수 이름 · 길이 · 앞 10자 접두사까지만 찍는다. 값은 터미널에 뜨는 순간
+  세션 로그와 전사본에 남고, `SUPABASE_SECRET_KEY`는 RLS를 전부 우회한다 (§3)
 
 ### 출첵 판정
 
