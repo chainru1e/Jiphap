@@ -50,7 +50,7 @@ anon INSERT probe 5/5 → 42501 new row violates row-level security policy (payl
 GitHub 저장소 연결, 환경변수 입력.
 **완료 기준:** `https://<프로젝트>.vercel.app`이 HTTPS로 뜬다. (https://jiphap.vercel.app)
 
-### T06 · 카카오 개발자 앱 등록
+### T06 · 카카오 개발자 앱 등록 ✓
 JavaScript 키(지도) + REST API 키(로그인) 발급. **플랫폼 도메인과 Redirect URI 양쪽** 등록.
 **완료 기준:** Supabase Auth Providers에서 Kakao가 켜져 있다.
 

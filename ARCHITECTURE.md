@@ -273,7 +273,7 @@ Supabase Postgres
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=   # sb_publishable_... 브라우저 노출 전제
 SUPABASE_SECRET_KEY=                    # sb_secret_... 서버 전용. 절대 클라이언트 번들 금지
-NEXT_PUBLIC_KAKAO_MAP_KEY=              # JavaScript 키
+NEXT_PUBLIC_KAKAO_MAP_KEY=              # 카카오맵 JavaScript 키(브라우저 노출 공개값)
 CRON_SECRET=                            # 직접 정해 Vercel에 등록. 아래 주의
 GOOGLE_SERVICE_ACCOUNT_JSON_BASE64=     # 서비스 계정 JSON 전체를 base64. 서버 전용
 GOOGLE_SHEET_ID=                        # 스프레드시트 URL의 /d/ 와 /edit 사이. 서버 전용
@@ -290,6 +290,10 @@ GOOGLE_SHEET_ID=                        # 스프레드시트 URL의 /d/ 와 /edi
 
 카카오 개발자 콘솔에 **플랫폼 도메인과 Redirect URI 양쪽 모두** 등록해야 한다.
 하나만 빠져도 로그인이 실패한다.
+
+로그인용 **REST API 키와 Client Secret은 env에 넣지 않는다.** Supabase 대시보드
+Auth > Providers > Kakao에만 저장한다 — 코드 교환은 Supabase 서버가 하고, 앱은
+이 값을 볼 일이 없다.
 
 ---
 
