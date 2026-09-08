@@ -46,9 +46,9 @@ A절 SELECT probe는 전 테이블 0행이라 판정 불가. 결정적 증거는
 anon INSERT probe 5/5 → 42501 new row violates row-level security policy (payload {}, HTTP 401).
 **완료 기준:** anon 키로 `check_ins` INSERT를 시도하면 거부된다.
 
-### T05 · Vercel 배포
+### T05 · Vercel 배포 ✓
 GitHub 저장소 연결, 환경변수 입력.
-**완료 기준:** `https://<프로젝트>.vercel.app`이 HTTPS로 뜬다.
+**완료 기준:** `https://<프로젝트>.vercel.app`이 HTTPS로 뜬다. (https://jiphap.vercel.app)
 
 ### T06 · 카카오 개발자 앱 등록
 JavaScript 키(지도) + REST API 키(로그인) 발급. **플랫폼 도메인과 Redirect URI 양쪽** 등록.
