@@ -50,11 +50,19 @@ OAuth 승인 화면에서 실제로 부여된 권한은 이렇다.
 - **현재 Supabase 인스턴스가 하나뿐이라 MCP write 연결은 곧 프로덕션 write 연결이다.**
   Supabase는 프롬프트 인젝션 위험 때문에 MCP를 개발/스테이징 프로젝트에 연결할 것을 권고한다
 - 실사용자 데이터가 쌓이기 시작하는 시점(T29 · T32 이후 실제 운용)에 다음 중 하나를
-  재검토한다 — **개발용 프로젝트 분리** / **`read_only=true` 복귀 후 CLI(`supabase db push`)로 적용**
+  재검토한다 — **개발용 프로젝트 분리** / **`read_only=true` 복귀 후 CLI(`supabase db push`)로 적용**.
+  단 **후자는 지금 막혀 있다.** 원장이 어긋나 있어 백필 전에는 `db push`를 쓸 수 없다 (아래)
 - **`read_only=true`로 되돌려도 이미 발급된 OAuth 토큰은 회수되지 않는다.**
   권한 회수는 Supabase 대시보드 > Account > Apps에서 연결 해제로 한다
 - **저장소 인수인계 시 인수자는 `.mcp.json`의 write 설정을 인지하고, 필요하면
   `read_only=true`로 되돌린다.** 클론만 해도 이 설정이 따라간다
+- **Supabase의 마이그레이션 원장(`schema_migrations`)과 이 디렉터리가 일치하지 않는다.**
+  0001~0003은 대시보드 SQL Editor로 적용해 원장에 기록이 없고, 0004부터
+  `apply_migration`으로 기록된다. 따라서 원장은 "적용된 것 전부"가 아니라
+  **"0004 이후만"** 을 뜻한다
+- **이 상태에서 `supabase db push`를 실행하면 CLI가 0001~0003을 미적용으로 판단해
+  재실행하려 하고 `already exists`로 실패한다. 원장 백필 전까지 `supabase db push`를
+  사용하지 않는다**
 
 ## 파일명 규칙
 
@@ -65,6 +73,7 @@ OAuth 승인 화면에서 실제로 부여된 권한은 이렇다.
 | `0001_schema.sql` | 테이블 · 인덱스 · 함수 · 트리거 · Realtime + **RLS 켜기** | T03 |
 | `0002_rls.sql` | `create policy` 문만 | T04 |
 | `0003_event_trigger_ensure_rls.sql` | `ensure_rls` 이벤트 트리거 (RLS 자동 활성화 안전망) | T03 후속 |
+| `0004_flash_sessions.sql` | `sessions.session_type` + 인덱스 2개 (번개 세션) | T42 |
 
 RLS 켜기가 0002가 아니라 0001에 있는 이유: `create table`은 RLS를 켜지 않는다.
 0001만 적용된 상태로 시간이 뜨면 그동안 테이블이 Data API에 전면 개방된다.

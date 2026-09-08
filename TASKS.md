@@ -283,7 +283,7 @@ T38 래퍼로 덮어쓴다.
 같은 결정으로 **참석자 명단이 운영자 전용이 되므로**, RLS 축소(T46)와
 명단 스트림 재설계(T47), 그리고 사라진 억제 축을 대신할 이상 탐지(T48)가 함께 붙는다.
 
-### T42 · `0004_flash_sessions.sql` — 세션 유형 컬럼
+### T42 · `0004_flash_sessions.sql` — 세션 유형 컬럼 ✓
 `sessions`에 `session_type text not null default 'regular' check (session_type in ('regular','flash'))` 추가.
 **`created_by`는 이미 있다** (`0001_schema.sql`). 다시 만들지 않는다.
 **`status` 컬럼은 만들지 않는다.** 취소는 기존 `canceled_at`/`cancel_reason`으로 표현한다
@@ -298,8 +298,22 @@ T38 래퍼로 덮어쓴다.
 (3) 해당 회원이 이미 연 미마감 `flash`가 있는가 (4) 좌표가 유효한가.
 **반경은 서버 상수로 고정하고 클라이언트가 보낸 값은 버린다.**
 상수 값은 V01 측정 결과를 보고 여기서 정한다.
-동시 오픈 1개는 partial unique index로 못 만든다 — `now()` 비교가 IMMUTABLE이 아니다.
+**"1인 동시 오픈 1개" 판정 조건은 네 항이다.**
+
+```
+created_by = 본인
+AND session_type = 'flash'
+AND canceled_at is null
+AND meet_at이 아직 종료되지 않음   -- meet_at + open_after_min > now()
+```
+
+**마지막 항이 `now()` 비교이므로 DB 제약으로 표현할 수 없다.** `now()`는 IMMUTABLE이
+아니라 index predicate에 쓸 수 없어 partial unique index로 만들 수 없다.
 액션 층에서 검증한다 (ARCHITECTURE.md §17).
+
+앞의 세 항까지는 `sessions_flash_open_idx`(T42)가 후보를 좁혀 준다.
+**이 인덱스는 unique가 아니다** — `canceled_at is null`은 "취소되지 않음"이지
+"아직 진행 중"이 아니라서, unique를 붙이면 번개를 한 번 연 회원이 영구히 재개설 불가가 된다.
 **완료 기준:** 이미 번개를 연 계정으로 하나 더 만들면 거부된다.
 과거 시각으로 호출하면 거부된다. 요청에 `radius`를 실어 보내도 저장된 값은 서버 상수다.
 선행: T21, T42
