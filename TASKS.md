@@ -65,7 +65,7 @@ JavaScript 키(지도) + REST API 키(로그인) 발급. **플랫폼 도메인�
 하버사인, 지구 반지름 6371000m. `bearingDeg()`은 레이더에서 내 점의 각도로 쓴다.
 **완료 기준:** 알려진 좌표쌍(예: 서울시청↔광주시청 약 267km) 테스트 통과. 동일 지점은 0.
 
-### T08 · `lib/window.ts` — 세션 창 판정
+### T08 · `lib/window.ts` — 세션 창 판정 ✓
 `meet_at`, `open_before_min`, `open_after_min`, 현재 시각 → `'before' | 'open' | 'after'`.
 **완료 기준:** 경계값(정확히 opens_at, 정확히 closes_at) 테스트 통과. KST 기준 확인.
 
