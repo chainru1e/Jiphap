@@ -69,7 +69,7 @@ JavaScript 키(지도) + REST API 키(로그인) 발급. **플랫폼 도메인�
 `meet_at`, `open_before_min`, `open_after_min`, 현재 시각 → `'before' | 'open' | 'after'`.
 **완료 기준:** 경계값(정확히 opens_at, 정확히 closes_at) 테스트 통과. KST 기준 확인.
 
-### T09 · `lib/gate.ts` — 출첵 게이트
+### T09 · `lib/gate.ts` — 출첵 게이트 ✓
 위치축 × 시간축 → `{ enabled, reason, message }`. ARCHITECTURE.md §5의 4상태 표 그대로.
 **완료 기준:** 6개 조합 전부 테스트. 비활성일 때 `message`가 반드시 채워진다.
 
