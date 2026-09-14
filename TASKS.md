@@ -73,7 +73,7 @@ JavaScript 키(지도) + REST API 키(로그인) 발급. **플랫폼 도메인�
 위치축 × 시간축 → `{ enabled, reason, message }`. ARCHITECTURE.md §5의 4상태 표 그대로.
 **완료 기준:** 6개 조합 전부 테스트. 비활성일 때 `message`가 반드시 채워진다.
 
-### T10 · 정확도 경고 로직
+### T10 · 정확도 경고 로직 ✓
 `accuracy > radius`일 때 경고 문구 반환. **판정 자체는 바꾸지 않는다.**
 **완료 기준:** 오차가 커도 `enabled`가 그대로인 테스트 통과.
 
