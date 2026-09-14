@@ -150,7 +150,8 @@ create table check_ins (
 create index on check_ins (session_id);
 create index on check_ins (member_id, checked_at desc);
 
--- 지각 여부는 저장하지 않는다. 표시할 때 checked_at > meet_at 으로 계산한다
+-- 창 밖 체크인은 게이트가 거부하므로 행 자체가 생기지 않는다.
+-- "지각" 상태는 두지 않는다 (ARCHITECTURE.md §5)
 
 -- ============================================================
 -- RLS — 읽기만 허용, 쓰기는 전부 service_role
