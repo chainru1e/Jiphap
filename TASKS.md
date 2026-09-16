@@ -101,7 +101,7 @@ JavaScript 키(지도) + REST API 키(로그인) 발급. **플랫폼 도메인�
 
 ## Phase 3 — 위치와 표시
 
-### T15 · `useGeolocation` 훅
+### T15 · `useGeolocation` 훅 ✓
 `watchPosition`, `enableHighAccuracy: true`. 언마운트 시 반드시 `clearWatch`.
 권한 거부·타임아웃·`PERMISSION_DENIED`를 각각 다른 안내로 처리.
 **완료 기준:** 권한을 거부해도 앱이 죽지 않고 안내 문구가 뜬다.
