@@ -89,7 +89,7 @@ JavaScript 키(지도) + REST API 키(로그인) 발급. **플랫폼 도메인�
 `signInWithOAuth`, `app/auth/callback/route.ts`에서 코드 교환.
 **완료 기준:** 로그인 후 세션 쿠키가 생기고, `profiles`에 `pending` 행이 자동 생성된다.
 
-### T13 · 승인 대기 화면 + 가드
+### T13 · 승인 대기 화면 + 가드 ✓
 `proxy.ts`에서 `status`별 분기. `pending`은 대기 화면만, 비로그인은 로그인으로.
 **완료 기준:** pending 계정으로 `/`에 접근하면 대기 화면으로 리다이렉트된다.
 
