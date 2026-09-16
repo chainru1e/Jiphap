@@ -119,13 +119,16 @@ export default function KakaoMap({
       })
     }
     const onError = () => {
+      // 실패한 태그가 남아 있으면 다음 인스턴스가 재사용해 error 이벤트를 못 받고
+      // 로딩 상태에 갇힌다. 지워 두면 다음 마운트가 새 태그로 다시 시도한다.
+      script.remove()
       if (cancelled) return
       setErrorMessage(LOAD_FAILED_MESSAGE)
       setStatus('error')
     }
 
     // script가 이미 있고 실행까지 끝났으면 load 이벤트는 다시 오지 않는다.
-    // 이미 실패한 script를 재사용하는 경우는 잡지 못한다 — 그 처리는 T19 폴백의 몫이다.
+    // 실패한 script는 onError가 지우므로 재사용되지 않는다.
     if (sdkLoaded()) {
       onReady()
     } else {
@@ -137,7 +140,8 @@ export default function KakaoMap({
       cancelled = true
       script.removeEventListener('load', onReady)
       script.removeEventListener('error', onError)
-      // script는 제거하지 않는다. 다시 붙이면 SDK가 두 번 실행되고, 다른 인스턴스가 쓰고 있을 수 있다.
+      // 언마운트에서는 script를 제거하지 않는다. 다시 붙이면 SDK가 두 번 실행되고,
+      // 다른 인스턴스가 쓰고 있을 수 있다. 제거는 로드 실패(onError) 때만 한다.
       markerRef.current?.setMap(null)
       circleRef.current?.setMap(null)
       meOverlayRef.current?.setMap(null)
