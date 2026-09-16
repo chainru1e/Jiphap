@@ -85,7 +85,7 @@ JavaScript 키(지도) + REST API 키(로그인) 발급. **플랫폼 도메인�
 `lib/supabase/client.ts`(브라우저), `server.ts`(RSC), `admin.ts`(service_role).
 **완료 기준:** `admin.ts`에 `import 'server-only'`이 있다.
 
-### T12 · 카카오 로그인 + 콜백
+### T12 · 카카오 로그인 + 콜백 ✓
 `signInWithOAuth`, `app/auth/callback/route.ts`에서 코드 교환.
 **완료 기준:** 로그인 후 세션 쿠키가 생기고, `profiles`에 `pending` 행이 자동 생성된다.
 
