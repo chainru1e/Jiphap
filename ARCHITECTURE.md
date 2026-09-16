@@ -632,3 +632,60 @@ Server Action 층에서 검증한다.
 
 - 모든 액션 내부에서 인증·인가를 **직접** 검증한다
 - 클라이언트가 보낸 `created_by`를 신뢰하지 않는다. 서버 세션에서 재조회해 비교한다
+
+---
+
+## 18. 지도 실패 시 레이더 폴백
+
+> **미작성.** T19(지도 실패 시 레이더 폴백)의 결정 기록이 들어갈 자리다.
+> `components/MapOrRadar.tsx` · `components/KakaoMap.tsx` · `app/dev/DevMap.tsx`의 주석이
+> 이미 이 번호를 가리키므로 번호를 고정해 둔다. 별도 작업으로 채운다.
+
+---
+
+## 19. 체크인 Server Action (T21)
+
+`actions/check-in.ts`. 출첵의 유일한 쓰기 경로이며, §3의 세 조건(승인된 회원 · 창 안 · 반경 안)을
+서버가 전부 다시 확인한 뒤에만 `check_ins`에 INSERT한다. 결정은 네 가지다.
+
+### 중복 출첵은 DB UNIQUE가 막고, 23505는 성공으로 돌려준다
+
+`check_ins`의 `unique (session_id, member_id)`(0001)가 두 번째 출첵을 막는다.
+INSERT가 `23505`(unique_violation)로 실패하면 `{ ok: true, already: true }`를 돌려준다 —
+부원 입장에서는 출석이 되어 있는 상태이지 실패가 아니다.
+
+**INSERT 전에 SELECT로 중복을 검사하지 않는다.** 같은 부원의 요청 두 개가 겹치면 둘 다 SELECT를
+통과하고, 결국 판정은 UNIQUE가 한다. 그 외 에러 코드는 전부 `db_error`이고, 원문은 서버 로그까지만
+남긴다. 클라이언트에는 코드도 원문도 보내지 않는다 (`lib/checkInResult.ts` `mapInsertError`).
+
+### 좌표는 서버 재계산에만 쓰고 저장·로깅하지 않는다
+
+클라이언트가 보낸 `lat/lng`는 `lib/geo.ts`로 거리를 다시 계산하는 입력일 뿐이다 (§3).
+저장하는 것은 `dist_m`·`accuracy_m`(둘 다 정수로 반올림)뿐이고, `checked_at`은 DB default
+`now()`에 맡긴다 — 클라이언트 시각은 받지도 않는다 (§8, CLAUDE.md 절대 규칙).
+`console.error`에도 좌표를 넣지 않는다.
+
+`accuracy`는 기록만 하고 판정에 쓰지 않는다 (§5). 경고는 클라이언트(T10)의 몫이다.
+
+### 시트 동기화 `after()`는 T40에서 붙인다
+
+이 액션에는 `after()`도 `revalidatePath`도 없다. 시트 동기화 훅 연결은 T40(선행 T38 래퍼 · T39
+재작성 로직), 리더보드 갱신은 T55의 몫이다. DB 기록이 확정된 뒤 응답 이후에 붙는 것들이라
+(§16 실패 격리) 액션의 성공·실패 판정과 섞이지 않는다.
+
+### 인증은 server.ts, INSERT만 admin.ts, 회원 자격은 액션 안에서 재확인
+
+Server Action은 직접 POST로 도달 가능한 공개 엔드포인트다 (§17). 순서는 이렇다.
+
+1. `lib/supabase/server.ts`(요청 쿠키 세션)로 `auth.getUser()`. 없으면 `unauthenticated`
+2. 같은 클라이언트로 `profiles.status`를 읽어 `'active'`가 아니면 `not_active`.
+   행이 없어도 `not_active`다 (fail-closed, `proxy.ts`와 같은 규칙). `proxy.ts`의 가드는
+   화면 전환용이지 방어선이 아니므로 (§15) 여기서 다시 본다
+3. `sessions`에서 `canceled_at is null`인 행만 조회. 없거나 취소됐으면 `no_session`.
+   취소 세션에 별도 사유를 두지 않는다 — "출석할 세션이 없다"가 부원이 알아야 할 전부다
+4. 서버 시각 `new Date()`로 `lib/window.ts` → `lib/gate.ts` 판정. 거부면 게이트의 `reason`·`message`를
+   그대로 돌려준다. 창 밖이면 행이 생기지 않는다 (§5)
+5. 여기까지 통과한 뒤에만 `lib/supabase/admin.ts`(service_role)로 INSERT
+
+`getGate`가 요구하는 KST 시계 표기(`'06:40'`)는 `lib/kst.ts`가 만든다. Vercel 함수의 TZ는 UTC라
+`Intl`·`toLocaleString`을 쓰면 문구가 환경에 끌려가므로, epoch ms + 9시간 산술로 고정한다.

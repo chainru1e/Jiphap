@@ -133,13 +133,19 @@ SDK 로드 실패·타임아웃을 감지해 자동 전환.
 
 ## Phase 4 — 출첵 (핵심)
 
-### T21 · `actions/check-in.ts` Server Action
+### T21 · `actions/check-in.ts` Server Action ✓
 서버 시각으로 창 검증 → 거리 재계산 → 회원 자격 → 중복 확인 → INSERT.
 **원좌표는 저장하지 않는다.** `dist_m`, `accuracy_m`만 남긴다.
 번개 개설/수정/취소 액션과 그 인가 검증도 이 티켓의 패턴을 따른다 (T43·T45).
 **Server Action은 직접 POST로 도달 가능한 공개 엔드포인트다.** 번개부터 일반 회원에게
 쓰기가 열리므로 액션 내부에서 인증·인가를 직접 검증한다 (ARCHITECTURE.md §17).
 **완료 기준:** 창 밖 시각으로 호출하면 거부된다. 두 번 호출하면 unique 제약에 걸린다.
+완료 파일: `actions/check-in.ts`, `lib/checkInResult.ts`(+test), `lib/kst.ts`(+test),
+`ARCHITECTURE.md` §18 자리표시 · §19. 결정 기록은 ARCHITECTURE.md §19.
+메모: `unique (session_id, member_id)`는 0001에 이미 있어 마이그레이션을 추가하지 않았다
+(라이브 DB 제약명 `check_ins_session_id_member_id_key`로 확인). 0006은 T49 몫 그대로.
+메모: 완료 기준의 런타임 확인(창 밖 호출 · 2회 호출)은 세션 행과 호출 UI(T24)가 없어
+이 티켓에서 하지 못했다. tsc · lint · vitest · build 통과까지 확인. T24 조립 시 실제 호출로 확인한다.
 
 ### T22 · 다음 세션 조회
 지금 기준 가장 가까운 미취소 세션. 없으면 "다음 집합: 화요일 06:50" 안내.
