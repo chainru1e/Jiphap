@@ -81,7 +81,7 @@ JavaScript 키(지도) + REST API 키(로그인) 발급. **플랫폼 도메인�
 
 ## Phase 2 — 인증
 
-### T11 · Supabase 클라이언트 3종
+### T11 · Supabase 클라이언트 3종 ✓
 `lib/supabase/client.ts`(브라우저), `server.ts`(RSC), `admin.ts`(service_role).
 **완료 기준:** `admin.ts`에 `import 'server-only'`이 있다.
 
