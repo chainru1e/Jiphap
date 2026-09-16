@@ -93,7 +93,7 @@ JavaScript 키(지도) + REST API 키(로그인) 발급. **플랫폼 도메인�
 `proxy.ts`에서 `status`별 분기. `pending`은 대기 화면만, 비로그인은 로그인으로.
 **완료 기준:** pending 계정으로 `/`에 접근하면 대기 화면으로 리다이렉트된다.
 
-### T14 · 운영자 가드
+### T14 · 운영자 가드 ✓
 `proxy.ts`에서 `role='admin'`이 아니면 `/admin/*` 접근 차단.
 **완료 기준:** 일반 회원이 `/admin/members`에 가면 막힌다.
 
