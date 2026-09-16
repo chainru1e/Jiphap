@@ -1,4 +1,4 @@
-// 접근 제어 — status별 화면 전환 (T13). role별 분기는 T14에서 붙는다.
+// 접근 제어 — status별 화면 전환 (T13) + /admin/* role 가드 (T14).
 //
 // 이 가드는 화면 전환용이고 방어선이 아니다. Proxy는 낙관적 검사(optimistic check)용이며
 // 세션 관리나 인가의 최종 방어선이 아니다 (ARCHITECTURE.md §15). 실제 방어는
@@ -36,9 +36,10 @@ export async function proxy(request: NextRequest) {
 
   // 본인 행만 읽는다 (RLS profiles_self). single은 행이 없을 때 에러를 던지므로
   // maybeSingle로 받아 아래에서 "행 없음"을 직접 다룬다.
+  // status와 role을 한 번의 쿼리로 함께 읽는다 — 매 요청마다 도는 자리다.
   const { data } = await supabase
     .from('profiles')
-    .select('status')
+    .select('status, role')
     .eq('id', user.id)
     .maybeSingle()
 
@@ -46,8 +47,21 @@ export async function proxy(request: NextRequest) {
   // "모르면 막는다"가 승인제의 기본값이다.
   const status = data?.status ?? 'pending'
 
+  // status 판단이 먼저, role 판단은 active 안에서만. 승인되지 않은 계정은 role이
+  // admin이어도 /admin에 못 들어간다.
   if (status === 'active') {
-    return pathname === '/pending' ? redirectTo('/') : response
+    if (pathname === '/pending') return redirectTo('/')
+
+    // /admin/*는 admin만. role이 비어 있으면 member로 본다 (fail-closed).
+    // 이 role 가드도 §15와 같이 화면 전환용 낙관적 검사이지 방어선이 아니다 —
+    // 운영 기능의 실제 방어는 Server Action 내부의 role 검증(§17)이 한다.
+    const isAdminPath = pathname === '/admin' || pathname.startsWith('/admin/')
+    if (isAdminPath) {
+      const role = data?.role ?? 'member'
+      if (role !== 'admin') return redirectTo('/')
+    }
+
+    return response
   }
 
   // pending · rejected · inactive · 행 없음 → 대기 화면. 문구 차이는 화면이 담당한다.

@@ -199,6 +199,12 @@ profiles 행이 없으면 pending으로 취급한다(fail-closed).
 | `member` | 출첵, 명단 조회 |
 | `admin` | 회원 승인, 장소·일정 관리, 수동 출첵 |
 
+- `member` / `admin` 두 값. **`admin`만 `/admin/*`에 진입할 수 있다** (`proxy.ts` 가드).
+- 초기 운영자 1명은 Supabase 대시보드에서 `status='active'`, `role='admin'`으로 수동 지정한다
+  (`SCHEMA.sql` 말미의 UPDATE 문).
+- 이후 운영자 추가·해제 UI는 T26 이후의 몫이며 T14 범위가 아니다.
+- role 가드도 §15와 같이 화면 전환용이고, 최종 인가는 Server Action이 한다 (§17).
+
 카카오에서 `account_email` 동의 항목은 비즈 앱 전환이 필요하므로 **이메일에 의존하지 않는다.**
 닉네임만으로 굴러가야 한다.
 
@@ -377,7 +383,6 @@ React·Supabase·브라우저 API에 의존하지 않아야 테스트가 쉽다.
 
 - 세션 취소 시 이미 한 출첵을 어떻게 처리하는가
 - 회원 탈퇴 시 과거 출첵 기록을 남기는가
-- 운영자가 여러 명일 때 승인 권한을 누가 주는가 (초기 admin 지정 방법)
 - `anon`·`authenticated`에 남아 있는 테이블 write GRANT를 revoke하는가
   (지금은 RLS가 유일한 방어선이다. 관찰 근거는 `TASKS.md` T04 메모)
 - `open_after_min`을 DB CHECK로 잠글지 — 다음 스키마 정리 마이그레이션에서 판단
