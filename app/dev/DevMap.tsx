@@ -6,6 +6,7 @@
 // 아래 더미 게이트 버튼은 MapOrRadar 밖에 있다. 지도가 실패해 레이더로 바뀌어도 버튼은
 // 거리로만 열리고 닫혀야 한다 (ARCHITECTURE.md §18의 /dev 검증 케이스). onClick은 없다.
 
+import DirectionsButton from '@/components/DirectionsButton'
 import MapOrRadar from '@/components/MapOrRadar'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { accuracyWarning } from '@/lib/accuracy'
@@ -48,6 +49,7 @@ export default function DevMap() {
           </p>
         )}
       </div>
+      <DirectionsButton dest={MEET_POINT} className="mt-4" />
 
       {dist === null ? (
         <p className="mt-4">위치를 기다리는 중입니다</p>
