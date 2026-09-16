@@ -185,12 +185,14 @@ Supabase Postgres
         운영자 승인 → status='active' → 앱 사용 가능
 ```
 
-| status | 의미 |
-|---|---|
-| `pending` | 신청함. 승인 대기 화면만 볼 수 있음 |
-| `active` | 정회원. 출첵 가능 |
-| `rejected` | 거절됨 |
-| `inactive` | 탈퇴·휴면. 출석률 통계에서 제외 |
+| status | 의미 | 행선지 |
+|---|---|---|
+| `pending` | 신청함. 승인 대기 화면만 볼 수 있음 | `/pending` |
+| `active` | 정회원. 출첵 가능 | 통과 |
+| `rejected` | 거절됨 | `/pending` (문구만 다름) |
+| `inactive` | 탈퇴·휴면. 출석률 통계에서 제외 | `/pending` (문구만 다름) |
+
+profiles 행이 없으면 pending으로 취급한다(fail-closed).
 
 | role | 권한 |
 |---|---|
