@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 
 import DevGeo from './DevGeo'
 import DevRadar from './DevRadar'
+import DevMap from './DevMap'
 import DevSim from './DevSim'
 
 // 개발 전용 페이지. 프로덕션 빌드에서는 404다 — T16·T17의 "/dev 페이지에서 확인"이
@@ -18,6 +19,7 @@ export default function DevPage() {
       <DevGeo />
       <DevRadar />
       <DevSim />
+      <DevMap />
     </>
   )
 }
