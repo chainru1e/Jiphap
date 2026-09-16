@@ -6,11 +6,16 @@
 // 판정이 lib/gate.ts 한 곳에만 있어야 화면과 서버의 기준이 갈라지지 않는다 (ARCHITECTURE.md §5).
 // 그래서 lib/geo.ts에서 가져오는 것은 LatLng 타입뿐이고, 빌드에서 사라진다.
 //
-// SDK 로드 실패·타임아웃 시 레이더로 넘기는 폴백은 T19다. 여기서는 status만 낸다.
+// SDK 로드 실패는 onError(reason)로만 알린다 (T19, ARCHITECTURE.md §18). 폴백 상태와
+// 레이더 전환은 부모(MapOrRadar)가 소유한다 — 이 컴포넌트는 Radar의 존재를 모른다.
 
 import { useEffect, useRef, useState } from 'react'
 
 import type { LatLng } from '@/lib/geo'
+
+// script: sdk.js 태그 onerror · timeout: timeoutMs 안에 kakao.maps.load 콜백 미도달
+// sdk: 태그는 로드됐는데 window.kakao.maps가 없음
+export type KakaoMapErrorReason = 'script' | 'timeout' | 'sdk'
 
 export interface KakaoMapProps {
   center: LatLng
@@ -19,9 +24,13 @@ export interface KakaoMapProps {
   accuracy: number | null
   inside: boolean
   className?: string
+  onError?: (reason: KakaoMapErrorReason) => void
+  timeoutMs?: number
 }
 
-type Status = 'loading' | 'ready' | 'error'
+type Status = 'loading' | 'ready'
+
+const DEFAULT_TIMEOUT_MS = 8000
 
 // 같은 페이지에 KakaoMap이 여럿이어도 script는 하나다. SDK를 두 번 실행하면 전역이 깨진다.
 const SCRIPT_ID = 'kakao-map-sdk'
@@ -30,8 +39,9 @@ const SCRIPT_ID = 'kakao-map-sdk'
 const ACTIVE = '#16a34a'
 const WAITING = '#d97706'
 
+// 키 미설정은 배포 설정 오류라 onError의 세 사유에 넣지 않는다. 레이더로 넘겨서 가릴
+// 일이 아니고, 개발자가 바로 봐야 한다.
 const KEY_MISSING_MESSAGE = '지도 키가 설정되지 않았습니다'
-const LOAD_FAILED_MESSAGE = '지도를 불러오지 못했습니다'
 
 function sdkSrc(key: string): string {
   // autoload=false: 스크립트 실행과 지도 초기화를 분리해야 load 콜백에서 컨테이너를 잡을 수 있다.
@@ -49,16 +59,14 @@ export default function KakaoMap({
   accuracy,
   inside,
   className,
+  onError,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
 }: KakaoMapProps) {
   const key = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY
   const keyMissing = !key
 
-  // 키가 없으면 script를 만들지 않는다. effect 안에서 동기 setState를 하면
-  // react-hooks/set-state-in-effect에 걸리므로 초기값으로 결정한다.
-  const [status, setStatus] = useState<Status>(keyMissing ? 'error' : 'loading')
-  const [errorMessage, setErrorMessage] = useState<string | null>(
-    keyMissing ? KEY_MISSING_MESSAGE : null,
-  )
+  // 키가 없으면 script를 만들지 않는다. 로드 effect가 `if (!key) return`으로 빠진다.
+  const [status, setStatus] = useState<Status>('loading')
 
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<kakao.maps.Map | null>(null)
@@ -69,17 +77,22 @@ export default function KakaoMap({
   const accCircleRef = useRef<kakao.maps.Circle | null>(null)
   // 내 위치가 처음 잡혔을 때 한 번만 화면을 맞춘다. 매번 맞추면 걸어오는 동안 지도가 계속 튄다.
   const fittedRef = useRef(false)
+  // onError는 인스턴스당 한 번만. script 에러와 타임아웃이 겹쳐 두 번 불리면 부모가
+  // 폴백 이유를 두 번 갱신하고, 리마운트 뒤 늦게 온 콜백이 새 인스턴스를 오염시킨다.
+  const erroredRef = useRef(false)
 
   // 지도 생성은 SDK 로드 뒤 비동기로 일어난다. 그 시점의 최신 props를 보기 위한 ref.
-  const latestRef = useRef({ center, radius, inside })
+  // onError도 여기 둔다 — 부모가 매 렌더 새 함수를 넘겨도 effect가 다시 돌지 않게.
+  const latestRef = useRef({ center, radius, inside, onError })
   useEffect(() => {
-    latestRef.current = { center, radius, inside }
+    latestRef.current = { center, radius, inside, onError }
   })
 
   // SDK 로드 + 지도 생성. 마운트에 한 번.
   useEffect(() => {
     if (!key) return
     let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | null = null
 
     const existing = document.getElementById(SCRIPT_ID)
     const script =
@@ -94,7 +107,24 @@ export default function KakaoMap({
             return s
           })()
 
+    const clearTimer = () => {
+      if (timer !== null) clearTimeout(timer)
+      timer = null
+    }
+    const fail = (reason: KakaoMapErrorReason) => {
+      clearTimer()
+      if (cancelled || erroredRef.current) return
+      erroredRef.current = true
+      latestRef.current.onError?.(reason)
+    }
+
     const onReady = () => {
+      clearTimer()
+      // 태그는 로드됐는데 전역이 없다 — 차단 확장이 빈 응답을 돌려줬거나 키가 거부됐을 때.
+      if (!sdkLoaded()) {
+        fail('sdk')
+        return
+      }
       kakao.maps.load(() => {
         if (cancelled || !containerRef.current) return
         const { center, radius, inside } = latestRef.current
@@ -118,30 +148,36 @@ export default function KakaoMap({
         setStatus('ready')
       })
     }
-    const onError = () => {
+    const onScriptError = () => {
       // 실패한 태그가 남아 있으면 다음 인스턴스가 재사용해 error 이벤트를 못 받고
       // 로딩 상태에 갇힌다. 지워 두면 다음 마운트가 새 태그로 다시 시도한다.
       script.remove()
-      if (cancelled) return
-      setErrorMessage(LOAD_FAILED_MESSAGE)
-      setStatus('error')
+      fail('script')
+    }
+    const onTimeout = () => {
+      // 응답이 없는 태그도 같은 이유로 지운다. 남겨두면 "지도 다시 시도"가 그 태그에
+      // 리스너만 다시 붙여 또 timeoutMs를 기다린다.
+      script.remove()
+      fail('timeout')
     }
 
     // script가 이미 있고 실행까지 끝났으면 load 이벤트는 다시 오지 않는다.
-    // 실패한 script는 onError가 지우므로 재사용되지 않는다.
+    // 실패한 script는 onScriptError/onTimeout이 지우므로 재사용되지 않는다.
     if (sdkLoaded()) {
       onReady()
     } else {
       script.addEventListener('load', onReady)
-      script.addEventListener('error', onError)
+      script.addEventListener('error', onScriptError)
+      timer = setTimeout(onTimeout, timeoutMs)
     }
 
     return () => {
       cancelled = true
+      clearTimer()
       script.removeEventListener('load', onReady)
-      script.removeEventListener('error', onError)
+      script.removeEventListener('error', onScriptError)
       // 언마운트에서는 script를 제거하지 않는다. 다시 붙이면 SDK가 두 번 실행되고,
-      // 다른 인스턴스가 쓰고 있을 수 있다. 제거는 로드 실패(onError) 때만 한다.
+      // 다른 인스턴스가 쓰고 있을 수 있다. 제거는 로드 실패·타임아웃 때만 한다.
       markerRef.current?.setMap(null)
       circleRef.current?.setMap(null)
       meOverlayRef.current?.setMap(null)
@@ -153,7 +189,7 @@ export default function KakaoMap({
       accCircleRef.current = null
       mapRef.current = null
     }
-  }, [key])
+  }, [key, timeoutMs])
 
   // props 갱신. 지도를 다시 만들지 않고 오버레이만 옮긴다.
   const meLat = me?.lat ?? null
@@ -216,11 +252,12 @@ export default function KakaoMap({
   return (
     <div className={`relative ${className ?? 'h-80 w-full'}`}>
       {/* 카카오 지도는 컨테이너 높이가 0이면 타일을 그리지 않는다. 기본 320px(h-80)을
-          여기서 보장하고, 바꾸려면 className으로 높이를 함께 넘긴다. 로딩 중에는 이 회색이 보인다. */}
+          여기서 보장하고, 바꾸려면 className으로 높이를 함께 넘긴다. 로딩 중에는 이 회색이 보인다.
+          로드 실패 시에는 아무 문구도 그리지 않는다 — onError를 받은 부모가 처리한다. */}
       <div ref={containerRef} className="absolute inset-0 bg-neutral-200 dark:bg-neutral-800" />
-      {status === 'error' && (
+      {keyMissing && (
         <p className="absolute inset-0 flex items-center justify-center bg-neutral-200 p-4 text-center text-neutral-800 dark:bg-neutral-800 dark:text-neutral-200">
-          {errorMessage}
+          {KEY_MISSING_MESSAGE}
         </p>
       )}
     </div>
