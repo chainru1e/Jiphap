@@ -207,7 +207,8 @@ export default function KakaoMap({
     if (!fittedRef.current) {
       const bounds = circle.getBounds()
       bounds.extend(meLL)
-      map.setBounds(bounds)
+      // 네 방향 32px 여백: 내 점이 모서리·카카오 로고에 가리지 않게.
+      map.setBounds(bounds, 32, 32, 32, 32)
       fittedRef.current = true
     }
   }, [status, centerLat, centerLng, radius, meLat, meLng, accuracy, inside])

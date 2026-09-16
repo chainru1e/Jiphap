@@ -26,7 +26,13 @@ declare namespace kakao.maps {
 
   class Map {
     constructor(container: HTMLElement, options: MapOptions)
-    setBounds(bounds: LatLngBounds): void
+    setBounds(
+      bounds: LatLngBounds,
+      paddingTop?: number,
+      paddingRight?: number,
+      paddingBottom?: number,
+      paddingLeft?: number,
+    ): void
     relayout(): void
   }
 
