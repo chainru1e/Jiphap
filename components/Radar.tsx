@@ -8,6 +8,8 @@
 // 컨텍스트에서 CSS 없이 렌더해도 같은 그림이 나와야 하고, 회색·십자는 currentColor라
 // 다크모드에서 글자색을 따라간다.
 
+import { useId } from 'react'
+
 import { scaleM, toSvgPoint } from '@/lib/radarGeom'
 
 export interface RadarProps {
@@ -29,6 +31,9 @@ export default function Radar({
   radius,
   size = 240,
 }: RadarProps) {
+  // 같은 페이지에 Radar가 여럿 뜨므로(/dev) clipPath id가 겹치면 남의 원으로 잘린다.
+  // useId는 훅이지만 상태가 없어 "props만 받는 순수 컴포넌트" 조건을 깨지 않는다.
+  const clipId = `radar-clip-${useId()}`
   const c = size / 2
   const outerR = c - 8
   const inside = distance <= radius
@@ -43,6 +48,13 @@ export default function Radar({
       width={size}
       height={size}
     >
+      <defs>
+        {/* 정확도 원을 바깥 원 안으로 자른다. 오차가 반경보다 크면 viewBox 모서리까지 번져
+            사각형으로 보이는데, 레이더는 원이어야 한다. */}
+        <clipPath id={clipId}>
+          <circle cx={c} cy={c} r={outerR} />
+        </clipPath>
+      </defs>
       {/* 바깥 원: radius × 1.2 m. 배경일 뿐이라 얇고 옅게. */}
       <circle
         cx={c}
@@ -63,13 +75,14 @@ export default function Radar({
         strokeWidth={2}
         strokeDasharray={inside ? undefined : '6 4'}
       />
-      {/* 정확도 원: 내 점을 중심으로. viewBox 밖은 SVG가 알아서 잘라낸다. */}
+      {/* 정확도 원: 내 점을 중심으로. 바깥 원 밖은 clipPath로 잘라낸다. */}
       <circle
         cx={me.x}
         cy={me.y}
         r={scaleM(accuracy, radius, size)}
         fill={color}
         fillOpacity={0.15}
+        clipPath={`url(#${clipId})`}
       />
       {/* 중심 십자: 집합 장소. */}
       <line x1={c - 4} y1={c} x2={c + 4} y2={c} stroke="currentColor" strokeWidth={1.5} />
