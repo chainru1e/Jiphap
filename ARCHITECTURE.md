@@ -353,6 +353,7 @@ app/
   admin/members/           회원 승인
   admin/places/            장소 관리
   admin/schedules/         반복 일정
+  admin/sessions/new/      임시 세션 생성 (T29)
   admin/sessions/[id]/     세션 현황 · 수동 출첵
   api/cron/daily/          세션 생성 + keep-alive
 lib/
@@ -367,6 +368,7 @@ components/
 actions/
   check-in.ts              Server Action
   places.ts                장소 등록·활성 토글 Server Action (T27)
+  create-session.ts        임시 세션 생성 Server Action (T29)
 proxy.ts                   status·role별 접근 제어 (T13, T14)
 supabase/migrations/
 ```
@@ -903,3 +905,66 @@ T43·T44 번개 개설도 같은 핀 UI를 쓰므로 한 번에 설계하는 게
   payload가 다시 실리므로, 클라이언트는 `router.refresh()` 없이 props 갱신으로 목록을 받는다.
   낙관적 갱신은 하지 않는다.
 - `app/admin/layout.tsx`는 만들지 않는다. 접근 제어는 `proxy.ts`(T14)가 이미 한다.
+
+---
+
+## 24. 임시 세션 생성 (T29)
+
+`app/admin/sessions/new`(Server Component + `NewSessionForm` 클라이언트 자식)와
+`actions/create-session.ts`. 운영자가 저장된 장소를 골라 반복 일정과 무관한 일회성 세션을 만든다.
+결과는 `schedule_id = null`, `session_type = 'regular'`인 `sessions` 행이다.
+**임시 세션과 번개의 차이는 §17** — 둘 다 `schedule_id`가 null이지만 가르는 것은 `session_type`이다.
+
+### D1 · 라우트는 `/admin/sessions/new` 하나
+
+세션 목록·취소·수정 화면(`/admin/sessions`)은 T31이다. 이 화면은 만들기만 한다.
+접근 제어는 `proxy.ts`(T14)가 하고, 쓰기 인가는 액션 안에서 다시 본다.
+
+### D2 · 폼은 장소 · 시각 · 반경 · 창 시작뿐
+
+- 장소: `is_active = true`인 `places`만 select. 기본값은 이름순 첫 장소.
+- 반경: 슬라이더 20~200m, 5m 단위. **장소를 고르면 그 장소의 `default_radius`로 초기화되고 이후 운영자가
+  조정한다.** §17의 "반경은 서버 상수로 고정"은 번개(회원 개설)에만 해당한다 — 운영자가 여는 정규
+  세션은 계절·날씨에 따라 반경을 바꾸는 게 §7의 의도다. 상수는 `lib/placeResult.ts`의 것을 재사용한다.
+- 창 시작 `open_before_min`: 0~120 정수, 기본 10 (DB CHECK·default와 같다).
+- **`open_after_min`은 폼에 없다. 서버가 10으로 박는다** (§5, §11 "창 길이 조정 UI" 금지).
+- **`session_type`은 폼에 없다. 서버가 `'regular'`로 박는다** (§17).
+
+### D3 · 시각은 KST 벽시계로 받고, 마감 전이면 과거 시각도 허용한다
+
+`<input type="datetime-local">`의 값 `'YYYY-MM-DDTHH:mm'`을 클라이언트가 그대로 보낸다. 서버는 `'T'`로
+나눠 `lib/kst.ts kstDateTime(date, time)`으로 KST Date를 만든다. **KST 산술은 kst.ts 한 곳에만 있다** —
+액션에서 +09:00을 직접 더하지 않는다. 존재하지 않는 날짜(02-30)·25시는 `invalid_input`이다.
+
+허용 조건은 **창이 아직 안 닫혔을 것** — `getWindow({ meetAt, openBeforeMin, openAfterMin: 10 }).closesAt > now`
+(`lib/sessionResult.ts isWindowStillOpen`, now는 서버 시각). **과거 `meet_at`이라도 마감 전이면 허용한다.**
+"지금 06:50 집합 열자"가 가능해야 하고, T22는 창이 열린 세션을 고르므로 (§20) 만들자마자 메인에 뜬다.
+마감 정각은 닫힌 것이다 — `lib/window.ts`의 반열린 구간과 같은 방향이다. 마감된 시각이면 `window_closed`.
+마감 여부를 클라이언트에서 미리 검사하지 않는다 — 클라이언트 시계는 판정이 아니다 (§3).
+
+### D4 · 같은 시각의 세션이 있어도 막지 않는다
+
+SELECT로 중복을 검사하지 않는다. 세 가지 근거다.
+1. `sessions_schedule_slot` unique 인덱스는 `where schedule_id is not null`이라 임시 세션에는 걸리지 않는다.
+   DB가 막지 않는 것을 액션이 SELECT로 흉내 내면 두 요청이 겹칠 때 둘 다 통과한다 (§19와 같은 이유).
+2. 잘못 만든 세션은 운영자 취소(T31·T45, `canceled_at`)로 수습한다. 만들기를 막는 것보다 싸다.
+3. T22의 선택 규칙이 결정적이다 — 창이 열린 세션 중 regular 우선 → `meet_at` 이른 순 (§20).
+   같은 시각의 정규 세션이 둘 있어도 메인 화면은 흔들리지 않는다.
+
+### D5 · 신뢰 경계
+
+- 읽기: `page.tsx`가 `lib/supabase/server.ts`로 활성 장소를 읽는다 (RLS `places_read`). 좌표는 select하지
+  않는다. admin 클라이언트는 쓰지 않는다 (§3).
+- 쓰기: `actions/create-session.ts`. Server Action은 공개 엔드포인트다 (§17). 입력 형태는
+  `lib/sessionResult.ts`의 순수 검증 함수로, 인가는 액션 안에서 `auth.getUser()` →
+  `profiles.status='active' && role='admin'`을 다시 본다. 행 없음·미인증도 `unauthorized`다 (T27과 같다).
+- **클라이언트가 보낸 장소 이름·좌표는 받지 않는다.** 액션이 `places`에서 `name·lat·lng`를 읽어
+  `sessions`에 스냅샷으로 복사한다 (§7). 클라이언트는 `placeId`만 보내고, 그 id가 없거나 비활성이면
+  `place_not_found`다. 클라이언트가 좌표를 보내게 두면 임의 좌표의 세션을 만들 수 있다 (§3).
+- `created_by`는 서버 세션의 `user.id`. `console.error`에 좌표를 넣지 않는다 (§8).
+- 결과 타입은 `{ ok: true, id, meetAt } | { ok: false, reason: 'invalid_input' | 'unauthorized' |
+  'place_not_found' | 'window_closed' | 'db_error', message }`. `meetAt`은 DB가 돌려준 저장값이다.
+- 성공 시 `revalidatePath('/')` — 메인의 `getNextSession` 결과가 바뀐다. `/admin/sessions/new` 자체에는
+  갱신할 목록이 없다.
+- `authorizeAdmin`은 `actions/places.ts`의 것과 같은 내용을 파일 안에 다시 둔다. `'use server'` 파일의
+  export는 전부 공개 엔드포인트라 한쪽에서 꺼내 쓸 수 없다.
