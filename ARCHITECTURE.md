@@ -366,6 +366,7 @@ components/
   CheckInButton.tsx
 actions/
   check-in.ts              Server Action
+  places.ts                장소 등록·활성 토글 Server Action (T27)
 proxy.ts                   status·role별 접근 제어 (T13, T14)
 supabase/migrations/
 ```
@@ -835,3 +836,70 @@ RLS `sessions_read`를 그대로 타도록 `lib/supabase/server.ts`로 읽는다
 켜져 있으면 빈 줄. 줄 높이는 항상 유지해 문구가 떠도 버튼이 움직이지 않는다.
 색은 활성(반경 안)·대기 두 축뿐이다 (§10). 위치가 없으면 게이트를 부르지 않고 버튼은 비활성이다.
 지도의 `inside`는 게이트가 아니라 `dist <= radius`다 — 창 이전이라도 지도색은 반경 기준이다.
+
+---
+
+## 23. 장소 등록 (T27)
+
+`app/admin/places`(Server Component + `PlacesAdmin` 클라이언트 자식)와 `actions/places.ts`.
+운영자가 현장에서 **"지금 내 위치를 집합 장소로 지정"** 버튼 하나로 `places` 행을 만들고,
+목록에서 활성/비활성을 토글한다. 위도·경도 직접 입력 UI는 없다 (§11).
+
+### P1 · 좌표는 버튼을 누르는 순간의 GPS 값 하나다
+
+`useGeolocation()`이 들고 있는 최신 `position`을 그대로 폼에 담는다. 샘플 평균·재시도 없음 —
+운영자는 같은 자리에 서 있고, 값이 마음에 안 들면 다시 누르면 된다. `position`이 없으면 버튼은
+비활성이고 그 이유(권한·신호·대기)가 버튼 위에 뜬다.
+
+**이 경로는 클라이언트 GPS 값을 저장 목적으로 받는 유일한 경로다.** `check_ins`는 좌표를 재계산에만
+쓰고 버리지만 (§8·§19), `places.lat/lng`에는 남는다. 두 가지가 다르다.
+(1) 운영자 본인이 "여기가 집합 장소"라고 지정한 값이지, §8이 금지하는 부원의 원좌표가 아니다.
+(2) 출첵 게이트 판정과 무관하다 — 세션은 이 값을 스냅샷해서 쓰고 (§7), 판정은 T21이 한다.
+`console.error`에는 여전히 좌표를 넣지 않는다.
+
+`정확도 ±Nm`을 상시 표시한다. **이 숫자가 V01(반경 측정)의 관찰 수단이다** — 용봉탑 앞에서 몇 분간
+서서 이 값을 보고 반경 기본값을 정한다 (TASKS.md V01).
+
+### 정확도 경고는 저장을 막지 않는다
+
+`lib/accuracy.ts`의 `accuracyWarning({ accuracy: 지정 시점의 정확도, radius: 슬라이더 값 })`이 문구를 주면
+경고만 띄운다. §5와 같은 원칙이다 — 실제로 현장에 선 사람을 오차 때문에 막는 게 오차보다 큰 문제다.
+운영자가 경고를 보고 반경을 올리거나 다시 지정하는 것은 운영자의 판단이다.
+
+### P2 · 지도 핀은 T58로 미룬다
+
+`components/KakaoMap.tsx`는 T18·T19에서 두 번 손댔다. 핀 찍기(`onPick`)를 붙이면 3차 수정이고,
+T43·T44 번개 개설도 같은 핀 UI를 쓰므로 한 번에 설계하는 게 맞다. T27은 현재 위치 지정만으로
+"현장에서 버튼 하나로 등록"이라는 완료 기준을 만족한다.
+
+### P3 · 폼은 이름·반경·(버튼이 채우는) 좌표뿐
+
+- 이름: `trim` 후 1~40자. 저장도 `trim`한 값.
+- 반경: 슬라이더 20~200m, 5m 단위, 기본 60m. DB CHECK는 20~300이지만 **T28 반복 일정 슬라이더와 같은
+  범위로 보수적으로 좁힌다.** 상수(`PLACE_RADIUS_*`)는 `lib/placeResult.ts`에 두고 슬라이더와 서버 검증이
+  공유한다 — 슬라이더로 고른 값이 서버에서 거부되는 일이 없어야 한다.
+- `components/DistanceSlider.tsx`는 재사용하지 않는다. -1=꺼짐이라는 의미가 다르고 프로덕션에서 `null`을
+  반환하는 개발 도구다.
+
+### P4 · 목록은 이름·반경·등록일·활성 여부만
+
+좌표는 표시하지 않는다 (select도 하지 않는다). 등록일은 `lib/kst.ts` `kstDateString`으로 KST 날짜만.
+행마다 `is_active` 토글 하나. **삭제·이름 수정·반경 수정 UI는 없다** — 잘못 찍었으면 비활성으로 두고
+새로 등록한다. 세션이 `place_id`로 참조하므로 삭제는 애초에 위험하다.
+
+### P5 · 신뢰 경계
+
+- 읽기: `page.tsx`가 `lib/supabase/server.ts`로 읽는다. RLS `places_read`가 active 회원에게 SELECT를
+  허용하므로 충분하고, admin 클라이언트는 쓰지 않는다 (§3).
+- 쓰기: `actions/places.ts`. Server Action은 공개 엔드포인트다 (§17). 입력 형태는 `lib/placeResult.ts`의
+  순수 검증 함수로, 인가는 액션 안에서 `auth.getUser()` → `profiles.status='active' && role='admin'`을
+  다시 본다. 행 없음도 거부다 (fail-closed). `proxy.ts`의 `/admin` 가드는 화면 전환용이다 (§15).
+  통과한 뒤에만 `lib/supabase/admin.ts`(service_role)로 INSERT/UPDATE한다.
+- 클라이언트에서 받지 않는 것: `created_by`(서버 `user.id`), `id`·`is_active`(생성 시 DB default), 정확도.
+- 결과 타입은 `{ ok: true, id } | { ok: false, reason: 'invalid_input' | 'unauthorized' | 'db_error', message }`.
+  인증 없음도 `unauthorized`다 — 운영자 화면에 직접 POST한 사람에게 사유를 나눠 줄 이유가 없다.
+  토글 UPDATE가 0행이면 `invalid_input`("새로고침해 주세요") — 목록이 낡은 것이지 DB 실패가 아니다.
+- 성공 시 `revalidatePath('/admin/places')`. Server Function 안에서 부르면 같은 응답에 현재 라우트의 RSC
+  payload가 다시 실리므로, 클라이언트는 `router.refresh()` 없이 props 갱신으로 목록을 받는다.
+  낙관적 갱신은 하지 않는다.
+- `app/admin/layout.tsx`는 만들지 않는다. 접근 제어는 `proxy.ts`(T14)가 이미 한다.
