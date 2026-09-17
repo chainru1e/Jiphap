@@ -814,7 +814,7 @@ RLS `sessions_read`를 그대로 타도록 `lib/supabase/server.ts`로 읽는다
 ## 22. 버튼 4상태 UI (T24)
 
 `components/MainScreen.tsx`의 `SessionView`가 `lib/gate.ts` 결과로 "집합하기" 버튼을 켜고 끈다.
-**렌더만 한다.** onClick은 없고 `actions/check-in.ts`를 import하지 않는다 — 클릭 연결은 T57이다.
+T24 시점에는 렌더만 했다. 클릭 연결은 §25(T57)이고, 이 절의 4상태 판정은 그대로다.
 
 ### 표시용 1초 시계와 서버 판정
 
@@ -968,3 +968,51 @@ SELECT로 중복을 검사하지 않는다. 세 가지 근거다.
   갱신할 목록이 없다.
 - `authorizeAdmin`은 `actions/places.ts`의 것과 같은 내용을 파일 안에 다시 둔다. `'use server'` 파일의
   export는 전부 공개 엔드포인트라 한쪽에서 꺼내 쓸 수 없다.
+
+---
+
+## 25. 버튼 클릭 연결 (T57)
+
+`components/MainScreen.tsx`의 `SessionView`가 "집합하기" 버튼을 `actions/check-in.ts`의 `checkIn`에 연결한다.
+§22의 4상태 판정 코드는 그대로 두고 그 위에 전송 중 · 완료 · 서버 결과 state를 얹는다.
+**서버 게이트(§19)가 최종 판정이고, 클라이언트는 결과를 표시만 한다.**
+
+### 1 · `useTransition` + `startTransition(() => checkIn(...))`
+
+`useActionState`·`<form action>`은 쓰지 않는다. 결과를 state로 들고 버튼 위 1번째 줄에 얹는 구조라
+폼 액션이 줄 것이 없고, 화면에는 제출할 필드도 없다. 인자 `{ sessionId, lat, lng, accuracy }`는
+**클릭 시점에** `useGeolocation`의 최신 `position`에서 읽는다. 시각은 보내지 않는다 (§19).
+
+### 2 · 전송 중
+
+`isPending` 동안 버튼은 disabled, 라벨은 "확인 중…". 연타 방지는 클라이언트 1차이고,
+최종 방어선은 서버의 `unique (session_id, member_id)`다 — 23505는 `already`로 돌아온다 (§19).
+
+### 3 · 완료는 5번째 상태, 클라이언트 state뿐
+
+`ok: true`와 `ok: true, already: true`는 같은 상태 **"집합 완료"**(완료 색 = 활성 축 green, disabled)다.
+부원 입장에서 출석이 되어 있는 건 같다. 1번째 줄에는 서버 문구(`출석 완료` / `이미 출석 처리됐어요`)가
+남는다 — already를 알려 주는 게 유용하다.
+
+**완료 상태는 클라이언트 state로만 유지한다. 새로고침하면 다시 "집합하기"가 보이는 것은 의도된
+동작이다.** 다시 누르면 서버가 `already`를 돌려주므로 두 번 기록되지 않는다. 페이지 로드 시
+`check_ins`를 조회해 완료 상태를 복원하는 것은 T59로 분리한다 (선행: T13 authenticated SELECT RLS 검증).
+
+### 4 · 서버 거절 문구는 1번째 줄, 게이트 문구보다 우선
+
+`lib/checkInResult.ts`·게이트의 한국어 문구를 버튼 위 1번째 줄에 띄운다. 토스트·별도 카드는 만들지 않는다.
+다음 탭 시도(핸들러 진입) 시 지운다. 우선순위는 `lib/checkInStatusLine.ts`(순수, vitest)에 한 곳으로 둔다.
+
+```
+서버 결과 문구 > 시뮬레이션 안내 > 게이트 사유(꺼져 있을 때) > GPS 안내(위치 없을 때) > 빈 줄
+```
+
+서버 문구가 최우선인 이유: 게이트가 "집합하기"라고 해도 서버가 거절했으면 그 이유가 보여야 하고,
+완료 뒤 마감이 지나도 "출석 완료"가 "출첵 마감"에 덮이면 안 된다.
+
+### 5 · sim 모드는 전송하지 않는다
+
+`sim` prop이 있으면(§22, `/dev`의 `DevMainScreen`만) 액션을 부르지 않고 1번째 줄에
+"시뮬레이션: 전송 안 함"을 띄운다. 서버가 거리를 재계산하므로 슬라이더 거리와 서버 판정이 어긋난다.
+안내는 **탭한 뒤** 뜨고, 게이트 문구가 바뀌면(슬라이더·라디오) 사라진다 — 항상 띄우면 `/dev`의
+4상태 확인(§22)이 죽는다. effect로 지우지 않고 탭 시점의 게이트 문구를 스냅샷해 비교한다.

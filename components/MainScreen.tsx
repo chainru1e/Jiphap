@@ -3,24 +3,31 @@
 // 사용자 메인 화면 (T23, ARCHITECTURE.md §21). 스크롤 없는 한 화면 — 부모가 높이를 주고
 // (page.tsx의 h-dvh, /dev의 375×667 프레임) 이 컴포넌트는 h-full로 그 안을 나눈다.
 //
-// 버튼은 lib/gate.ts 결과로 켜고 끈다 (T24, §22). 렌더만 한다 — onClick 없음, 클릭 연결은 T57,
-// 인원 수 조회는 T47. 비활성 이유는 버튼 바로 위 상태 줄에 항상 뜬다 (§5). 상태 줄은
-// min-height로 고정해 문구가 떠도 버튼이 안 움직인다.
+// 버튼은 lib/gate.ts 결과로 켜고 끈다 (T24, §22). 클릭은 actions/check-in.ts를 부른다 (T57, §25) —
+// 4상태 판정 코드는 그대로 두고 그 위에 전송 중·완료·서버 결과 state를 얹는다. 인원 수 조회는 T47.
+// 비활성 이유는 버튼 바로 위 상태 줄에 항상 뜬다 (§5). 어떤 문구가 이기는지는
+// lib/checkInStatusLine.ts가 정한다. 상태 줄은 min-height로 고정해 문구가 떠도 버튼이 안 움직인다.
 //
 // 여기서 켜진 버튼은 서버가 다시 판정한다 (§3·§4). 시계도 GPS도 클라이언트 값이라 판정이 아니다.
+// 완료 상태는 클라이언트 state뿐이다 — 새로고침하면 다시 "집합하기"가 보인다. 복원은 T59.
 //
 // sim은 dev 전용이다. app/(app)/page.tsx는 넘기지 않고, /dev의 DevMainScreen만 시각·거리를 주입한다.
+// sim이 있으면 액션을 부르지 않는다 — 슬라이더 거리는 서버 재계산과 어긋난다 (§25).
 //
 // NextSessionResult는 타입으로만 가져온다. lib/queries/nextSession.ts는 server-only라
 // 값 import는 빌드에서 막힌다. 타입 import는 컴파일에서 지워져 번들에 들어가지 않는다.
 //
 // 좌표는 SessionView 안에서 거리·방위 계산과 지도에만 쓴다. 화면·콘솔에 찍지 않는다 (§8).
 
+import { useState, useTransition } from 'react'
+
+import { checkIn } from '@/actions/check-in'
 import DirectionsButton from '@/components/DirectionsButton'
 import MapOrRadar from '@/components/MapOrRadar'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { useNow } from '@/hooks/useNow'
 import { accuracyWarning } from '@/lib/accuracy'
+import { checkInStatusLine } from '@/lib/checkInStatusLine'
 import { getGate } from '@/lib/gate'
 import { bearingDeg, distanceM, type LatLng } from '@/lib/geo'
 import { formatKstHHmm, formatKstWeekday } from '@/lib/kst'
@@ -66,6 +73,14 @@ function SessionView({ session, sim }: { session: SessionRow; sim?: MainScreenSi
   const clock = useNow()
   const now = sim?.now ?? clock
 
+  // T57 — 판정 위에 얹는 state. gate 계산은 건드리지 않는다.
+  const [isPending, startTransition] = useTransition()
+  const [done, setDone] = useState(false)
+  const [serverMessage, setServerMessage] = useState<string | null>(null)
+  // sim 모드에서 탭한 시점의 게이트 문구. 슬라이더·라디오로 문구가 바뀌면 안내가 저절로 사라져
+  // /dev의 4상태 확인이 살아 있다. effect로 지우지 않는다.
+  const [simTappedAt, setSimTappedAt] = useState<string | null>(null)
+
   const center: LatLng = { lat: session.place_lat, lng: session.place_lng }
   const meetAt = new Date(session.meet_at)
 
@@ -95,9 +110,36 @@ function SessionView({ session, sim }: { session: SessionRow; sim?: MainScreenSi
           opensAtLabel: formatKstHHmm(w.opensAt),
         })
 
-  // 상태 줄 1 — 버튼이 안 눌리는 이유. 켜져 있으면 비워 두되 높이는 유지한다.
-  const statusLine =
-    gate === null ? (message ?? '위치를 기다리는 중입니다') : gate.enabled ? '' : gate.message
+  const simNotice = sim !== undefined && simTappedAt !== null && simTappedAt === (gate?.message ?? null)
+
+  // 상태 줄 1 — 서버 결과 > sim 안내 > 게이트 사유 > GPS 안내 > 빈 줄 (§25). 높이는 유지한다.
+  const statusLine = checkInStatusLine({ serverMessage, simNotice, gate, geoMessage: message })
+
+  const handleClick = () => {
+    // 직전 서버 결과는 다음 탭에서 지운다. 거절 문구가 영영 남지 않는다.
+    setServerMessage(null)
+    if (sim !== undefined) {
+      setSimTappedAt(gate?.message ?? null)
+      return
+    }
+    // 클릭 시점의 최신 position. 서버가 거리를 다시 계산하므로 여기 값은 입력일 뿐이다 (§3).
+    if (!position || gate === null || !gate.enabled) return
+    const input = { sessionId: session.id, lat: position.lat, lng: position.lng, accuracy: position.accuracy }
+    startTransition(async () => {
+      const result = await checkIn(input)
+      // 성공과 already는 같은 완료 상태다 — 부원 입장에서 출석이 되어 있는 건 같다 (§19·§25).
+      if (result.ok) setDone(true)
+      setServerMessage(result.message)
+    })
+  }
+
+  const buttonLabel = done ? '집합 완료' : isPending ? '확인 중…' : '집합하기'
+  // 완료·전송 중은 활성 축 색을 유지한다. 색은 두 축뿐이다 (§10).
+  const buttonColor = done
+    ? 'bg-green-600'
+    : isPending
+      ? 'bg-green-600 opacity-70'
+      : 'enabled:bg-green-600 disabled:bg-amber-600'
 
   // 색은 두 축만 (§10). 위치가 아직 없으면 반경 밖과 같은 대기색이다.
   const distColor = inside ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'
@@ -136,13 +178,14 @@ function SessionView({ session, sim }: { session: SessionRow; sim?: MainScreenSi
             <p className="min-h-5 font-semibold">{statusLine}</p>
             {warning && <p className="text-amber-700 dark:text-amber-400">{warning}</p>}
           </div>
-          {/* 라벨은 항상 "집합하기". 이유는 윗줄이 말한다. onClick은 T57. 색은 활성/대기 두 축뿐 (§10). */}
+          {/* 이유는 윗줄이 말한다. 전송 중·완료면 disabled — 연타는 여기서 1차, 서버 UNIQUE가 최종 (§25). */}
           <button
             type="button"
-            disabled={gate === null || !gate.enabled}
-            className="min-h-14 w-full rounded-xl text-lg font-bold text-white enabled:bg-green-600 disabled:bg-amber-600"
+            onClick={handleClick}
+            disabled={isPending || done || gate === null || !gate.enabled}
+            className={`min-h-14 w-full rounded-xl text-lg font-bold text-white ${buttonColor}`}
           >
-            집합하기
+            {buttonLabel}
           </button>
         </div>
       </div>

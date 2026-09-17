@@ -173,11 +173,13 @@ SDK 로드 실패·타임아웃을 감지해 자동 전환.
 운영자용 명단 표시는 T31에서 다룬다.
 **완료 기준:** T47을 따른다.
 
-### T57 · 버튼 클릭 → checkIn Server Action 연결
+### T57 · 버튼 클릭 → checkIn Server Action 연결 ✓
 T24의 "집합하기" 버튼에 `actions/check-in.ts`를 연결한다. 호출 중 비활성, 결과 문구(성공 / 이미 출석 /
-실패)를 상태 줄 1에 표시, 성공 시 버튼을 "출석 완료"로 고정한다.
+실패)를 상태 줄 1에 표시, 성공 시 버튼을 "집합 완료"로 고정한다. 결정 기록은 ARCHITECTURE.md §25.
 **완료 기준:** 창 밖 호출이 거부된다. 2회 호출 시 `already`가 돌아온다.
 선행: T21 · T24
+메모: 완료 상태는 클라이언트 state뿐이다. 로드 시 복원은 T59. 순수 문구 우선순위는
+`lib/checkInStatusLine.ts`(+test).
 
 ### T58 · 장소 등록 — 지도 핀 찍기 (KakaoMap onPick, T43 번개도 재사용)
 `components/KakaoMap.tsx`에 핀 선택(`onPick`)을 붙여 `/admin/places` 폼의 좌표를 지도에서도
@@ -185,6 +187,21 @@ T24의 "집합하기" 버튼에 `actions/check-in.ts`를 연결한다. 호출 �
 만들지 않는다 (ARCHITECTURE.md §11·§23).
 **완료 기준:** 지도에서 핀을 옮기면 폼 좌표가 갱신되고, 저장한 장소가 목록에 뜬다.
 선행: T27 · T18
+
+### T59 · 메인 화면 로드 시 내 체크인 완료 상태 복원
+`app/(app)/page.tsx`가 세션 조회와 함께 본인의 `check_ins` 행 유무를 읽어 `MainScreen`에 넘기고,
+있으면 처음부터 "집합 완료" 상태로 그린다. 지금은 새로고침하면 다시 "집합하기"가 보인다
+(ARCHITECTURE.md §25 결정 3 — 의도된 동작).
+**완료 기준:** 출첵한 뒤 새로고침해도 버튼이 "집합 완료"다.
+선행: T57 · T13 authenticated SELECT RLS 검증(`check_ins_read`가 본인 행을 돌려주는지, T46 축소 이후 기준)
+
+### T60 · `authorizeAdmin`을 `lib/auth/authorizeAdmin.ts`(server-only)로 추출
+`actions/create-session.ts`와 `actions/places.ts`에 같은 내용으로 복제된 `authorizeAdmin`을
+`lib/auth/authorizeAdmin.ts`(`import 'server-only'`)로 옮기고 두 액션이 import한다.
+`'use server'` 파일에서 export하면 공개 엔드포인트가 되므로 액션 파일이 아니라 lib에 둔다
+(ARCHITECTURE.md §24 D5). 동작 변화 없음 — 인증 없음·행 없음·미승인·일반 회원 전부 거부(fail-closed).
+**완료 기준:** 두 액션 파일에서 `authorizeAdmin` 정의가 사라지고, 기존 tsc·lint·vitest·build가 그대로 통과한다.
+선행: T29
 
 ---
 
