@@ -767,3 +767,41 @@ Server Action은 직접 POST로 도달 가능한 공개 엔드포인트다 (§17
 RLS `sessions_read`를 그대로 타도록 `lib/supabase/server.ts`로 읽는다. admin 클라이언트는 쓰지 않는다.
 결과 타입은 `session` / `notice` / `error` 셋이다. `lib/queries/`는 이 티켓에서 처음 생긴
 서버 조회 모듈 폴더다.
+
+---
+
+## 21. 메인 화면 조립 (T23)
+
+`app/(app)/page.tsx` + `components/MainScreen.tsx`. 사용자 메인 `/`의 뼈대다.
+세션 헤더 / 지도 / 거리 숫자 / 상태 문구 / 버튼 자리 / 인원 수 자리를 375×667 한 화면에 넣는다.
+**게이트 판정·체크인 호출·인원 수 조회는 여기 없다.** T24·T47이 채울 자리만 최종 크기로 잡는다.
+
+### 조회는 서버, 그리기는 클라이언트
+
+`page.tsx`는 async Server Component로 `getNextSession()`(§20)을 부르고 결과를 `MainScreen`에 props로
+넘긴다. `/dev`의 `DevNextSession`과 같은 패턴이다. `MainScreen`은 `'use client'`이고
+`NextSessionResult`를 **타입으로만** 가져온다 — `lib/queries/`는 server-only라 값 import는 막힌다.
+`cookies()`를 타므로 `/`는 자동 dynamic이고 `export const dynamic`은 쓰지 않는다 (§15).
+
+### 훅은 세션 분기 자식에서만 부른다
+
+`useGeolocation`은 `SessionView` 안에서만 마운트된다. `notice`/`error`일 때는 지도 없이 중앙 문구
+카드 하나뿐이고 GPS를 켤 이유가 없다. 훅 규칙상 조건부 호출이 안 되므로 분기를 컴포넌트로 나눈다.
+
+### 100dvh 고정, 지도가 남는 높이를 전부 차지한다
+
+`h-dvh`는 `page.tsx`의 `<main>` 한 곳에만 두고 `MainScreen`은 `h-full`이다. `dvh`는 부모 박스로
+줄일 수 없어서, 이렇게 해야 `/dev`의 375×667 프레임(`DevMainScreen`)이 실제로 화면을 구속한다.
+헤더 1줄 → 지도(`flex-1 min-h-0`) → 하단 1줄(`참석 인원 —` + 길찾기).
+
+### 거리·버튼은 지도 위 오버레이, 상태 문구는 버튼 위 고정 높이
+
+§9대로 거리 숫자(상단)와 버튼(하단)을 지도 위에 띄운다. 버튼은 56px 전체 폭이고 지금은 비활성
+"준비 중"이다. 그 바로 위 상태 문구 영역은 `useGeolocation().message`와 `accuracyWarning`만 담고,
+둘 다 없어도 `min-height`로 높이를 유지한다 — 문구가 떠도 버튼이 움직이면 안 된다.
+색은 대기/활성 두 축뿐이고 (§10), 위치가 아직 없을 때(`--`)는 대기색이다.
+
+### 하지 않는 것
+
+`router.refresh` 자동 갱신 없음 — 창 경계 처리는 T24 게이트 몫이다. 좌표는 `SessionView` 안에서
+거리·방위 계산과 지도에만 쓰고 화면·콘솔에 찍지 않는다 (§8).

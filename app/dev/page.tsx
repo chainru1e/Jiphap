@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 
 import DevGeo from './DevGeo'
 import DevRadar from './DevRadar'
+import DevMainScreen from './DevMainScreen'
 import DevMap from './DevMap'
 import DevNextSession from './DevNextSession'
 import DevSim from './DevSim'
@@ -22,6 +23,7 @@ export default function DevPage() {
       <DevSim />
       <DevMap />
       <DevNextSession />
+      <DevMainScreen />
     </>
   )
 }
